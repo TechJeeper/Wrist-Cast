@@ -151,18 +151,22 @@ def render_ready(w: int, h: int, color: bool) -> Image.Image:
     else:
         draw.rectangle((0, water_y, w, h), fill=water)
 
-    rod = load_sprite(RES / "rod.png", color)
-    if rod is not None:
-        rw, rh = rod.width * 2, rod.height * 2
-        paste_scaled(img, rod, (w - rw - 4, water_y - rh + 8, rw, rh))
-
     bobber = load_sprite(RES / "bobber.png", color)
-    bx, by = w // 2, water_y + h // 10 + 12
-    draw.line((w - 28, water_y - 20, bx, by), fill=dim, width=1)
+    bx, by = w // 2 - 10, water_y + 20
+    rod = load_sprite(RES / "rod.png", color)
+    tip = (w // 2 + 14, water_y - 4)
+    rod_xy = None
+    if rod is not None:
+        rod_xy = ((w - rod.width) // 2 + 10, water_y - 8)
+        tip = (rod_xy[0] + rod.width // 2, rod_xy[1] + 3)
+
+    draw.line((tip[0], tip[1], bx, by), fill=dim, width=1)
     if bobber is not None:
-        paste_centered_scaled(img, bobber, bx, by, 48, 48)
+        paste_centered_scaled(img, bobber, bx, by + 8, bobber.width, bobber.height)
     else:
         draw.ellipse((bx - 6, by - 6, bx + 6, by + 6), fill=RED if color else WHITE)
+    if rod is not None and rod_xy is not None:
+        img.paste(rod, rod_xy, rod)
 
     text_right(draw, "12 caught", 2, w, f14, dim)
     text_center(draw, "Flick to cast", h - 40, w, f18, WHITE)

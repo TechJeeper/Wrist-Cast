@@ -75,8 +75,19 @@ static const char *rarity_label(FishRarity r) {
   return "Common";
 }
 
+static void draw_fp_rod_fallback(GContext *ctx, GRect bounds, GPoint tip) {
+  int16_t butt_x = bounds.size.w / 2 + 8;
+  int16_t butt_y = bounds.size.h + 2;
+  graphics_context_set_stroke_color(ctx, C_YELLOW);
+  graphics_context_set_stroke_width(ctx, 3);
+  graphics_draw_line(ctx, GPoint(butt_x, butt_y), tip);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_context_set_fill_color(ctx, C_ACCENT);
+  graphics_fill_circle(ctx, GPoint(butt_x - 5, butt_y - 16), 5);
+}
+
 static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
-  // Horizon sits higher so water fills most of the display
+  // First-person: looking past your rod tip out onto the water
   int16_t water_y = bounds.size.h * 2 / 5;
 
   graphics_context_set_fill_color(ctx, C_SKY);
@@ -85,7 +96,6 @@ static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
   if (s_bmp_water) {
     GRect wb = gbitmap_get_bounds(s_bmp_water);
     int16_t wy = water_y - 2;
-    // Tile water 1:1 across width (no upscale — avoids 2x2 sprite repeats)
     for (int16_t x = 0; x < bounds.size.w; x += wb.size.w) {
       draw_bitmap_native(ctx, s_bmp_water, GPoint(x, wy));
     }
@@ -100,32 +110,50 @@ static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
     graphics_draw_line(ctx, GPoint(0, water_y), GPoint(bounds.size.w, water_y));
   }
 
-  if (s_bmp_rod) {
-    GRect rb = gbitmap_get_bounds(s_bmp_rod);
-    draw_bitmap_native(ctx, s_bmp_rod,
-                       GPoint(bounds.size.w - rb.size.w - 4, water_y - rb.size.h + 8));
+  if (!(g->state == GameState_Waiting || g->state == GameState_Bite ||
+        g->state == GameState_Ready)) {
+    return;
   }
 
-  int16_t bobber_x = bounds.size.w / 2;
-  int16_t bobber_y = water_y + bounds.size.h / 10;
+  // Bobber ahead on the water
+  int16_t bobber_x = bounds.size.w / 2 - 10;
+  int16_t bobber_y = water_y + 12;
   if (g->state == GameState_Waiting) {
     bobber_y += (int16_t)((g->state_ms / 200) % 2) * 3;
   } else if (g->state == GameState_Bite) {
-    bobber_y += 10 + (int16_t)((g->state_ms / 80) % 3) * 2;
+    bobber_y += 8 + (int16_t)((g->state_ms / 80) % 3) * 2;
   }
 
-  if (g->state == GameState_Waiting || g->state == GameState_Bite ||
-      g->state == GameState_Ready) {
-    graphics_context_set_stroke_color(ctx, C_DIM);
-    graphics_context_set_stroke_width(ctx, 1);
-    graphics_draw_line(ctx, GPoint(bounds.size.w - 28, water_y - 20),
-                       GPoint(bobber_x, bobber_y));
-    if (s_bmp_bobber) {
-      draw_bitmap_centered_native(ctx, s_bmp_bobber, GPoint(bobber_x, bobber_y + 8));
-    } else {
-      graphics_context_set_fill_color(ctx, C_RED);
-      graphics_fill_circle(ctx, GPoint(bobber_x, bobber_y + 8), 6);
-    }
+  // Place rod from bottom of screen; tip = top-center of sprite
+  GPoint tip;
+  int16_t rod_x = 0;
+  int16_t rod_y = 0;
+  if (s_bmp_rod) {
+    GRect rb = gbitmap_get_bounds(s_bmp_rod);
+    rod_x = (bounds.size.w - rb.size.w) / 2 + 10;
+    // Tip near the horizon; handle hangs toward the bottom of the display
+    rod_y = water_y - 8;
+    tip = GPoint(rod_x + rb.size.w / 2, rod_y + 3);
+  } else {
+    tip = GPoint(bounds.size.w / 2 + 14, water_y - 4);
+  }
+
+  // Line from tip to bobber, then bobber, then rod on top so tip covers the join
+  graphics_context_set_stroke_color(ctx, C_DIM);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_draw_line(ctx, tip, GPoint(bobber_x, bobber_y));
+
+  if (s_bmp_bobber) {
+    draw_bitmap_centered_native(ctx, s_bmp_bobber, GPoint(bobber_x, bobber_y + 8));
+  } else {
+    graphics_context_set_fill_color(ctx, C_RED);
+    graphics_fill_circle(ctx, GPoint(bobber_x, bobber_y + 8), 6);
+  }
+
+  if (s_bmp_rod) {
+    draw_bitmap_native(ctx, s_bmp_rod, GPoint(rod_x, rod_y));
+  } else {
+    draw_fp_rod_fallback(ctx, bounds, tip);
   }
 }
 
