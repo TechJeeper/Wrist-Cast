@@ -42,20 +42,28 @@ static void redraw_cb(void *ctx) {
   s_redraw = app_timer_register(100, redraw_cb, NULL);
 }
 
-static void draw_bitmap_centered(GContext *ctx, GBitmap *bmp, GPoint center) {
+static void draw_bitmap_scaled(GContext *ctx, GBitmap *bmp, GRect dest) {
   if (!bmp) return;
-  GRect b = gbitmap_get_bounds(bmp);
-  GRect dest = GRect(center.x - b.size.w / 2, center.y - b.size.h / 2, b.size.w, b.size.h);
   graphics_context_set_compositing_mode(ctx, GCompOpSet);
   graphics_draw_bitmap_in_rect(ctx, bmp, dest);
 }
 
-static void draw_bitmap_at(GContext *ctx, GBitmap *bmp, GPoint origin) {
+static void draw_bitmap_centered_scaled(GContext *ctx, GBitmap *bmp, GPoint center,
+                                        int16_t max_w, int16_t max_h) {
   if (!bmp) return;
   GRect b = gbitmap_get_bounds(bmp);
-  GRect dest = GRect(origin.x, origin.y, b.size.w, b.size.h);
-  graphics_context_set_compositing_mode(ctx, GCompOpSet);
-  graphics_draw_bitmap_in_rect(ctx, bmp, dest);
+  int16_t tw = b.size.w;
+  int16_t th = b.size.h;
+  if (tw < 1 || th < 1) return;
+  // Upscale by integer factor to stay crisp
+  int16_t sx = max_w / tw;
+  int16_t sy = max_h / th;
+  int16_t scale = sx < sy ? sx : sy;
+  if (scale < 1) scale = 1;
+  if (scale > 3) scale = 3;
+  tw = (int16_t)(tw * scale);
+  th = (int16_t)(th * scale);
+  draw_bitmap_scaled(ctx, bmp, GRect(center.x - tw / 2, center.y - th / 2, tw, th));
 }
 
 static GBitmap *fish_bmp_for(FishRarity r) {
@@ -71,20 +79,22 @@ static const char *rarity_label(FishRarity r) {
 }
 
 static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
-  int16_t water_y = bounds.size.h / 2 + 8;
+  // Horizon sits higher so water fills most of the display
+  int16_t water_y = bounds.size.h * 2 / 5;
 
   graphics_context_set_fill_color(ctx, C_SKY);
   graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, water_y), 0, GCornerNone);
 
   if (s_bmp_water) {
     GRect wb = gbitmap_get_bounds(s_bmp_water);
-    int16_t wy = water_y - 4;
-    for (int16_t x = 0; x < bounds.size.w; x += wb.size.w) {
-      draw_bitmap_at(ctx, s_bmp_water, GPoint(x, wy));
-    }
+    int16_t wy = water_y - 2;
+    // Stretch water strip to full width; tile vertically into the lower half
+    int16_t stretch_h = wb.size.h;
+    if (stretch_h < 28) stretch_h = 28;
+    draw_bitmap_scaled(ctx, s_bmp_water, GRect(0, wy, bounds.size.w, stretch_h));
     graphics_context_set_fill_color(ctx, C_WATER);
-    graphics_fill_rect(ctx, GRect(0, wy + wb.size.h, bounds.size.w,
-                                  bounds.size.h - (wy + wb.size.h)), 0, GCornerNone);
+    graphics_fill_rect(ctx, GRect(0, wy + stretch_h, bounds.size.w,
+                                  bounds.size.h - (wy + stretch_h)), 0, GCornerNone);
   } else {
     graphics_context_set_fill_color(ctx, C_WATER);
     graphics_fill_rect(ctx, GRect(0, water_y, bounds.size.w, bounds.size.h - water_y),
@@ -94,36 +104,42 @@ static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
   }
 
   if (s_bmp_rod) {
-    draw_bitmap_at(ctx, s_bmp_rod, GPoint(bounds.size.w - 52, water_y - 48));
+    GRect rb = gbitmap_get_bounds(s_bmp_rod);
+    int16_t rw = rb.size.w * 2;
+    int16_t rh = rb.size.h * 2;
+    draw_bitmap_scaled(ctx, s_bmp_rod,
+                       GRect(bounds.size.w - rw - 4, water_y - rh + 8, rw, rh));
   }
 
-  int16_t bobber_x = bounds.size.w / 2 - 10;
-  int16_t bobber_y = water_y - 6;
+  int16_t bobber_x = bounds.size.w / 2 - 16;
+  int16_t bobber_y = water_y + bounds.size.h / 10;
   if (g->state == GameState_Waiting) {
-    bobber_y += (int16_t)((g->state_ms / 200) % 2) * 2;
+    bobber_y += (int16_t)((g->state_ms / 200) % 2) * 3;
   } else if (g->state == GameState_Bite) {
-    bobber_y += 6 + (int16_t)((g->state_ms / 80) % 3);
+    bobber_y += 10 + (int16_t)((g->state_ms / 80) % 3) * 2;
   }
 
   if (g->state == GameState_Waiting || g->state == GameState_Bite ||
       g->state == GameState_Ready) {
     graphics_context_set_stroke_color(ctx, C_DIM);
-    graphics_draw_line(ctx, GPoint(bounds.size.w - 40, water_y - 40),
-                       GPoint(bobber_x + 8, bobber_y));
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_line(ctx, GPoint(bounds.size.w - 28, water_y - 20),
+                       GPoint(bobber_x + 16, bobber_y));
     if (s_bmp_bobber) {
-      draw_bitmap_centered(ctx, s_bmp_bobber, GPoint(bobber_x + 8, bobber_y + 8));
+      draw_bitmap_centered_scaled(ctx, s_bmp_bobber, GPoint(bobber_x + 16, bobber_y + 12),
+                                  48, 48);
     } else {
       graphics_context_set_fill_color(ctx, C_RED);
-      graphics_fill_circle(ctx, GPoint(bobber_x + 8, bobber_y + 8), 4);
+      graphics_fill_circle(ctx, GPoint(bobber_x + 16, bobber_y + 12), 6);
     }
   }
 }
 
 static void draw_tension(GContext *ctx, GRect bounds, const Game *g) {
-  int16_t bar_x = 10;
-  int16_t bar_w = bounds.size.w - 20;
-  int16_t bar_y = bounds.size.h / 2 - 10;
-  int16_t bar_h = 18;
+  int16_t bar_x = 8;
+  int16_t bar_w = bounds.size.w - 16;
+  int16_t bar_y = bounds.size.h / 2 - 16;
+  int16_t bar_h = 28;
 
   graphics_context_set_fill_color(ctx, C_DIM);
   graphics_fill_rect(ctx, GRect(bar_x, bar_y, bar_w, bar_h), 2, GCornersAll);
@@ -169,36 +185,36 @@ static void canvas_update(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, C_TEXT);
 
   if (g->state == GameState_Title) {
+    // Full-bleed scene: stretch title art to the whole canvas
     if (s_bmp_title) {
-      GRect tb = gbitmap_get_bounds(s_bmp_title);
-      int16_t tw = tb.size.w;
-      if (tw > bounds.size.w - 8) tw = bounds.size.w - 8;
-      int16_t th = tb.size.h;
-      if (th > 72) th = 72;
-      GRect dest = GRect((bounds.size.w - tw) / 2, 10, tw, th);
-      graphics_context_set_compositing_mode(ctx, GCompOpSet);
-      graphics_draw_bitmap_in_rect(ctx, s_bmp_title, dest);
+      draw_bitmap_scaled(ctx, s_bmp_title, bounds);
     } else {
       graphics_draw_text(ctx, "WRIST CAST", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
                          GRect(0, 28, bounds.size.w, 32), GTextOverflowModeTrailingEllipsis,
                          GTextAlignmentCenter, NULL);
     }
 
+    // Bottom caption bar over the art
+    int16_t bar_h = (g->total_catches > 0) ? 58 : 46;
+    graphics_context_set_fill_color(ctx, C_BG);
+    graphics_fill_rect(ctx, GRect(0, bounds.size.h - bar_h, bounds.size.w, bar_h),
+                       0, GCornerNone);
+
     graphics_context_set_text_color(ctx, C_DIM);
     graphics_draw_text(ctx, "Flick to cast · feel the bite",
                        fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(4, bounds.size.h - 70, bounds.size.w - 8, 20),
+                       GRect(4, bounds.size.h - bar_h + 2, bounds.size.w - 8, 18),
                        GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
     graphics_context_set_text_color(ctx, C_TEXT);
     graphics_draw_text(ctx, "SELECT to start", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                       GRect(4, bounds.size.h - 44, bounds.size.w - 8, 24),
+                       GRect(4, bounds.size.h - bar_h + 20, bounds.size.w - 8, 22),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 
     if (g->total_catches > 0) {
       snprintf(line, sizeof(line), "Caught %u", (unsigned)g->total_catches);
       graphics_context_set_text_color(ctx, C_DIM);
       graphics_draw_text(ctx, line, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                         GRect(4, bounds.size.h - 22, bounds.size.w - 8, 18),
+                         GRect(4, bounds.size.h - 18, bounds.size.w - 8, 16),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     }
     return;
@@ -220,15 +236,17 @@ static void canvas_update(Layer *layer, GContext *ctx) {
     if (g->state == GameState_Caught) {
       GBitmap *fb = fish_bmp_for(g->catch_rarity);
       if (fb) {
-        draw_bitmap_centered(ctx, fb, GPoint(bounds.size.w / 2, bounds.size.h / 2 - 18));
+        draw_bitmap_centered_scaled(ctx, fb,
+                                    GPoint(bounds.size.w / 2, bounds.size.h / 2 - 24),
+                                    bounds.size.w - 24, bounds.size.h / 2);
       }
       graphics_draw_text(ctx, g->catch_name, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                         GRect(4, bounds.size.h / 2 + 20, bounds.size.w - 8, 22),
+                         GRect(4, bounds.size.h / 2 + 28, bounds.size.w - 8, 22),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
       graphics_context_set_text_color(ctx, C_DIM);
       graphics_draw_text(ctx, rarity_label(g->catch_rarity),
                          fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                         GRect(4, bounds.size.h / 2 + 42, bounds.size.w - 8, 18),
+                         GRect(4, bounds.size.h / 2 + 50, bounds.size.w - 8, 18),
                          GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
       snprintf(line, sizeof(line), "Total %u  Streak %u",
                (unsigned)g->total_catches, (unsigned)g->streak);
