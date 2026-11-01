@@ -160,13 +160,13 @@ def render_ready(w: int, h: int, color: bool) -> Image.Image:
         rod_xy = ((w - rod.width) // 2 + 10, water_y - 8)
         tip = (rod_xy[0] + rod.width // 2, rod_xy[1] + 3)
 
+    if rod is not None and rod_xy is not None:
+        img.paste(rod, rod_xy, rod)
     draw.line((tip[0], tip[1], bx, by), fill=dim, width=1)
     if bobber is not None:
         paste_centered_scaled(img, bobber, bx, by + 8, bobber.width, bobber.height)
     else:
         draw.ellipse((bx - 6, by - 6, bx + 6, by + 6), fill=RED if color else WHITE)
-    if rod is not None and rod_xy is not None:
-        img.paste(rod, rod_xy, rod)
 
     text_right(draw, "12 caught", 2, w, f14, dim)
     text_center(draw, "Flick to cast", h - 40, w, f18, WHITE)

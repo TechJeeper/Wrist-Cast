@@ -124,21 +124,22 @@ static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
     bobber_y += 8 + (int16_t)((g->state_ms / 80) % 3) * 2;
   }
 
-  // Place rod from bottom of screen; tip = top-center of sprite
+  // Rod from below looking out; tip = top-center of sprite (near horizon)
   GPoint tip;
   int16_t rod_x = 0;
   int16_t rod_y = 0;
   if (s_bmp_rod) {
     GRect rb = gbitmap_get_bounds(s_bmp_rod);
     rod_x = (bounds.size.w - rb.size.w) / 2 + 10;
-    // Tip near the horizon; handle hangs toward the bottom of the display
     rod_y = water_y - 8;
-    tip = GPoint(rod_x + rb.size.w / 2, rod_y + 3);
+    tip = GPoint(rod_x + rb.size.w / 2, rod_y + 2);
+    draw_bitmap_native(ctx, s_bmp_rod, GPoint(rod_x, rod_y));
   } else {
     tip = GPoint(bounds.size.w / 2 + 14, water_y - 4);
+    draw_fp_rod_fallback(ctx, bounds, tip);
   }
 
-  // Line from tip to bobber, then bobber, then rod on top so tip covers the join
+  // Line drawn AFTER the rod so it leaves the tip cleanly (not under the reel)
   graphics_context_set_stroke_color(ctx, C_DIM);
   graphics_context_set_stroke_width(ctx, 1);
   graphics_draw_line(ctx, tip, GPoint(bobber_x, bobber_y));
@@ -148,12 +149,6 @@ static void draw_scene(GContext *ctx, GRect bounds, const Game *g) {
   } else {
     graphics_context_set_fill_color(ctx, C_RED);
     graphics_fill_circle(ctx, GPoint(bobber_x, bobber_y + 8), 6);
-  }
-
-  if (s_bmp_rod) {
-    draw_bitmap_native(ctx, s_bmp_rod, GPoint(rod_x, rod_y));
-  } else {
-    draw_fp_rod_fallback(ctx, bounds, tip);
   }
 }
 
