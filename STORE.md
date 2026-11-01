@@ -40,3 +40,29 @@ Initial release — flick to cast, vibe on bite, reel with UP/DOWN tension.
 | SELECT | Start / cast fallback / hook / dismiss result |
 | UP / DOWN | Alternate to reel during fight |
 | BACK | Leave fight/wait to ready; title exits |
+
+## Screenshots
+
+Exact display sizes (no bezel). Regenerate with:
+
+```powershell
+python tools/generate_store_screenshots.py
+```
+
+| Platform | Size | Folder |
+| --- | --- | --- |
+| basalt (Pebble Time) | 144×168 | `store/screenshots/basalt/` |
+| diorite (Pebble 2) | 144×168 | `store/screenshots/diorite/` |
+| flint (Pebble 2 Duo) | 144×168 | `store/screenshots/flint/` |
+| emery (Pebble Time 2) | 200×228 | `store/screenshots/emery/` |
+
+Scenes (5 each): title, ready/cast, bite, fight, caught.
+
+## Listing checklist
+
+- [ ] Large + small app icons
+- [x] Screenshots (5 per platform under `store/screenshots/`)
+- [ ] Marketing banner (required for watch apps)
+- [ ] Description above on each asset collection
+- [ ] Publish `build/WristCast.pbw` as release 1.0.0
+
