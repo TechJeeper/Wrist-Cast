@@ -1,0 +1,86 @@
+{
+  "name": "wrist-cast",
+  "author": "caffeinegamer",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app",
+    "game",
+    "fishing",
+    "haptic",
+    "idle"
+  ],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.1.0"
+  },
+  "pebble": {
+    "displayName": "Wrist Cast",
+    "uuid": "b3f8c2a1-7d4e-4a9b-8c15-6e2f91d0a847",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "basalt",
+      "diorite",
+      "flint"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "messageKeys": [
+      "VibeEnabled",
+      "QuietHours",
+      "WaitLength",
+      "CastSensitivity",
+      "FightDifficulty"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "bitmap",
+          "name": "IMAGE_MENU_ICON",
+          "file": "images/menu_icon.png",
+          "menuIcon": true
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_TITLE",
+          "file": "images/title.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_WATER",
+          "file": "images/water.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_ROD",
+          "file": "images/rod.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_BOBBER",
+          "file": "images/bobber.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_FISH_COMMON",
+          "file": "images/fish_common.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_FISH_RARE",
+          "file": "images/fish_rare.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_FISH_LEGEND",
+          "file": "images/fish_legend.png"
+        }
+      ]
+    }
+  }
+}
