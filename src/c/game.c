@@ -152,7 +152,7 @@ static void enter_fighting(void) {
   s_game.out_of_green_ms = 0;
   cast_set_armed(false);
   haptics_hook();
-  set_banner("Hold UP to reel", 0);
+  set_banner("Stay in green!", 0);
 }
 
 static void enter_bite(void) {
@@ -218,7 +218,7 @@ static uint16_t snap_limit_ms(void) {
 }
 
 static uint8_t reel_gain_per_tick(void) {
-  // ~2s of green hold on Easy, ~3.5s Normal, ~5s Hard
+  // Base fill while tension is in the green (~2–4s)
   if (s_game.fight_difficulty == 0) return 3;
   if (s_game.fight_difficulty == 2) return 1;
   return 2;
@@ -230,31 +230,33 @@ static void clamp_tension(void) {
 }
 
 static void fight_tick(void) {
-  // Hold UP = reel (progress + tension rises)
-  // Hold DOWN = ease (tension drops)
+  // Hold UP = tension rises (and reels faster while green)
+  // Hold DOWN = ease tension down
   // Neither = mild fish pull
-  if (s_game.down_held) {
+  if (s_game.down_held && !s_game.up_held) {
     s_game.tension -= ease_tension_per_tick();
   } else if (s_game.up_held) {
     s_game.tension += reel_tension_per_tick();
-    if (game_in_green()) {
-      uint8_t gain = reel_gain_per_tick();
-      if (s_game.reel_progress + gain >= 100) {
-        s_game.reel_progress = 100;
-        s_game.up_held = false;
-        s_game.down_held = false;
-        enter_caught();
-        return;
-      }
-      s_game.reel_progress += gain;
-    }
   } else {
     s_game.tension += idle_drift_per_tick();
   }
   clamp_tension();
 
+  // Progress whenever tension is in the green — buttons manage the needle
   if (game_in_green()) {
     s_game.out_of_green_ms = 0;
+    uint8_t gain = reel_gain_per_tick();
+    if (s_game.up_held) {
+      gain = (uint8_t)(gain + gain); // hold UP = double speed
+    }
+    if (s_game.reel_progress + gain >= 100) {
+      s_game.reel_progress = 100;
+      s_game.up_held = false;
+      s_game.down_held = false;
+      enter_caught();
+      return;
+    }
+    s_game.reel_progress += gain;
   } else {
     s_game.out_of_green_ms += GAME_TICK_MS;
     if ((s_game.out_of_green_ms % 400) < GAME_TICK_MS) {

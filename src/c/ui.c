@@ -229,7 +229,7 @@ static void canvas_update(Layer *layer, GContext *ctx) {
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     draw_tension(ctx, bounds, g);
     graphics_context_set_text_color(ctx, C_DIM);
-    graphics_draw_text(ctx, "Hold UP reel · DOWN ease", fonts_get_system_font(FONT_KEY_GOTHIC_14),
+    graphics_draw_text(ctx, "UP pull · DOWN ease", fonts_get_system_font(FONT_KEY_GOTHIC_14),
                        GRect(4, bounds.size.h - 28, bounds.size.w - 8, 20),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
     return;
