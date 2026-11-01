@@ -1,13 +1,14 @@
 # Wrist Cast
 
-Micro-fishing on your Pebble. Flick your wrist to cast, wait for a haptic bite, hook with SELECT, then alternate UP/DOWN to keep tension in the green and reel it in — built to play by feel while looking away.
+Micro-fishing on your Pebble. Flick your wrist to cast, wait for a haptic bite, hook with SELECT, then hold UP to reel and DOWN to ease so tension stays in the green — built to play by feel while looking away.
 
 ## Play
 
 - **Flick wrist** (or SELECT) — cast the line
 - **Wait** — bobber sits quiet until a vibe
 - **SELECT** — hook when it buzzes
-- **UP / DOWN** — alternate quickly to stay in the green tension zone
+- **Hold UP** — reel in (fills the reel bar; tension rises)
+- **Hold DOWN** — ease the line (tension drops)
 - **BACK** — return to ready / title; from title exits
 
 Catches, streak, and best rarity persist between launches.

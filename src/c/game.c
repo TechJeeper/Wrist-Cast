@@ -91,7 +91,8 @@ static void enter_ready(void) {
   s_game.state_ms = 0;
   s_game.tension = 50;
   s_game.reel_progress = 0;
-  s_game.last_dir = 0;
+  s_game.up_held = false;
+  s_game.down_held = false;
   s_game.out_of_green_ms = 0;
   cast_set_armed(true);
   set_banner("Flick to cast", 0);
@@ -146,11 +147,12 @@ static void enter_fighting(void) {
   s_game.state_ms = 0;
   s_game.tension = 50;
   s_game.reel_progress = 0;
-  s_game.last_dir = 0;
+  s_game.up_held = false;
+  s_game.down_held = false;
   s_game.out_of_green_ms = 0;
   cast_set_armed(false);
   haptics_hook();
-  set_banner("UP / DOWN reel!", 0);
+  set_banner("Hold UP to reel", 0);
 }
 
 static void enter_bite(void) {
@@ -190,51 +192,78 @@ bool game_in_green(void) {
       && s_game.tension <= (int16_t)game_green_hi();
 }
 
-static int16_t drift_per_tick(void) {
-  // Positive = toward red (high tension)
+static int16_t idle_drift_per_tick(void) {
+  // Fish pulls the line when you're not easing
+  if (s_game.fight_difficulty == 0) return 1;
+  if (s_game.fight_difficulty == 2) return 2;
+  return 1;
+}
+
+static int16_t reel_tension_per_tick(void) {
   if (s_game.fight_difficulty == 0) return 1;
   if (s_game.fight_difficulty == 2) return 3;
   return 2;
 }
 
+static int16_t ease_tension_per_tick(void) {
+  if (s_game.fight_difficulty == 0) return 3;
+  if (s_game.fight_difficulty == 2) return 2;
+  return 3;
+}
+
 static uint16_t snap_limit_ms(void) {
-  if (s_game.fight_difficulty == 0) return 2200;
-  if (s_game.fight_difficulty == 2) return 900;
-  return 1400;
+  if (s_game.fight_difficulty == 0) return 2800;
+  if (s_game.fight_difficulty == 2) return 1200;
+  return 1800;
 }
 
-static uint8_t reel_gain(void) {
-  if (s_game.fight_difficulty == 0) return 6;
-  if (s_game.fight_difficulty == 2) return 3;
-  return 4;
+static uint8_t reel_gain_per_tick(void) {
+  // ~2s of green hold on Easy, ~3.5s Normal, ~5s Hard
+  if (s_game.fight_difficulty == 0) return 3;
+  if (s_game.fight_difficulty == 2) return 1;
+  return 2;
 }
 
-static void apply_pull(int8_t dir) {
-  if (s_game.state != GameState_Fighting) return;
-  if (dir == 0) return;
-
-  if (s_game.last_dir == dir) {
-    // Same button twice — yank wrong way
-    s_game.tension += 8;
-    if (s_game.tension > 100) s_game.tension = 100;
-    return;
-  }
-
-  s_game.last_dir = dir;
-  // Nudge toward center of green
-  int16_t mid = ((int16_t)game_green_lo() + (int16_t)game_green_hi()) / 2;
-  if (s_game.tension > mid) s_game.tension -= 10;
-  else s_game.tension += 10;
+static void clamp_tension(void) {
   if (s_game.tension < 0) s_game.tension = 0;
   if (s_game.tension > 100) s_game.tension = 100;
+}
+
+static void fight_tick(void) {
+  // Hold UP = reel (progress + tension rises)
+  // Hold DOWN = ease (tension drops)
+  // Neither = mild fish pull
+  if (s_game.down_held) {
+    s_game.tension -= ease_tension_per_tick();
+  } else if (s_game.up_held) {
+    s_game.tension += reel_tension_per_tick();
+    if (game_in_green()) {
+      uint8_t gain = reel_gain_per_tick();
+      if (s_game.reel_progress + gain >= 100) {
+        s_game.reel_progress = 100;
+        s_game.up_held = false;
+        s_game.down_held = false;
+        enter_caught();
+        return;
+      }
+      s_game.reel_progress += gain;
+    }
+  } else {
+    s_game.tension += idle_drift_per_tick();
+  }
+  clamp_tension();
 
   if (game_in_green()) {
-    uint8_t gain = reel_gain();
-    if (s_game.reel_progress + gain >= 100) {
-      s_game.reel_progress = 100;
-      enter_caught();
-    } else {
-      s_game.reel_progress += gain;
+    s_game.out_of_green_ms = 0;
+  } else {
+    s_game.out_of_green_ms += GAME_TICK_MS;
+    if ((s_game.out_of_green_ms % 400) < GAME_TICK_MS) {
+      haptics_warn();
+    }
+    if (s_game.out_of_green_ms >= snap_limit_ms()) {
+      s_game.up_held = false;
+      s_game.down_held = false;
+      enter_snapped();
     }
   }
 }
@@ -301,24 +330,9 @@ void game_tick(void) {
       }
       break;
 
-    case GameState_Fighting: {
-      s_game.tension += drift_per_tick();
-      if (s_game.tension > 100) s_game.tension = 100;
-      if (s_game.tension < 0) s_game.tension = 0;
-
-      if (game_in_green()) {
-        s_game.out_of_green_ms = 0;
-      } else {
-        s_game.out_of_green_ms += GAME_TICK_MS;
-        if ((s_game.out_of_green_ms % 400) < GAME_TICK_MS) {
-          haptics_warn();
-        }
-        if (s_game.out_of_green_ms >= snap_limit_ms()) {
-          enter_snapped();
-        }
-      }
+    case GameState_Fighting:
+      fight_tick();
       break;
-    }
 
     default:
       break;
@@ -395,12 +409,12 @@ void game_select(void) {
   }
 }
 
-void game_up(void) {
-  apply_pull(1);
+void game_set_up_held(bool held) {
+  s_game.up_held = held;
 }
 
-void game_down(void) {
-  apply_pull(-1);
+void game_set_down_held(bool held) {
+  s_game.down_held = held;
 }
 
 void game_back(void) {

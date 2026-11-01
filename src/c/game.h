@@ -27,7 +27,8 @@ typedef struct {
   uint16_t bite_window_ms;
   int16_t tension;           // 0–100
   uint8_t reel_progress;     // 0–100
-  int8_t last_dir;           // -1 down, 0 none, +1 up
+  bool up_held;
+  bool down_held;
   uint16_t out_of_green_ms;
   FishRarity catch_rarity;
   char catch_name[20];
@@ -58,8 +59,8 @@ void game_set_fight_difficulty(uint8_t v);
 void game_start(void);
 void game_cast(void);
 void game_select(void);
-void game_up(void);
-void game_down(void);
+void game_set_up_held(bool held);
+void game_set_down_held(bool held);
 void game_back(void);
 
 bool game_in_green(void);

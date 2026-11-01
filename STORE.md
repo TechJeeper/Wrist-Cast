@@ -19,7 +19,7 @@ Paste into each platform asset collection (max 1600 characters):
 ```
 Wrist Cast is micro-fishing you play by feel.
 
-Flick your wrist to cast a line into quiet water. When something bites, the watch buzzes — press SELECT to set the hook, then work UP and DOWN to keep the tension in the green and bring it in. Miss the moment or snap the line, and the lake goes still again.
+Flick your wrist to cast a line into quiet water. When something bites, the watch buzzes — press SELECT to set the hook, then hold UP to reel and DOWN to ease so the tension stays in the green. Miss the moment or snap the line, and the lake goes still again.
 
 It is built for glances away from the screen: idle waiting, tactile cues, and a short fight that lives in your fingers. Cast again whenever you are ready. Tune vibes and difficulty from the phone settings page.
 
@@ -38,7 +38,8 @@ Initial release — flick to cast, vibe on bite, reel with UP/DOWN tension.
 | --- | --- |
 | Wrist flick | Cast (when ready) |
 | SELECT | Start / cast fallback / hook / dismiss result |
-| UP / DOWN | Alternate to reel during fight |
+| Hold UP | Reel in (tension rises) |
+| Hold DOWN | Ease the line (tension drops) |
 | BACK | Leave fight/wait to ready; title exits |
 
 ## Screenshots

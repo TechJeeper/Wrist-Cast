@@ -214,7 +214,7 @@ def render_fight(w: int, h: int, color: bool) -> Image.Image:
 
     draw.text((bar_x, bar_y - 18), "Tension", font=f14, fill=WHITE)
     draw.text((bar_x, py + 10), "Reel", font=f14, fill=WHITE)
-    text_center(draw, "Alternate UP / DOWN", h - 28, w, f14, dim)
+    text_center(draw, "Hold UP reel · DOWN ease", h - 28, w, f14, dim)
     # tiny warn cue unused — keep tension in green story
     _ = bad
     return img
