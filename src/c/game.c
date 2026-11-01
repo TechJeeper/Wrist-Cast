@@ -91,6 +91,7 @@ static void enter_ready(void) {
   s_game.state_ms = 0;
   s_game.tension = 50;
   s_game.reel_progress = 0;
+  s_game.reel_fp = 0;
   s_game.up_held = false;
   s_game.down_held = false;
   s_game.out_of_green_ms = 0;
@@ -118,7 +119,7 @@ static void pick_catch(void) {
 }
 
 static void enter_caught(void) {
-  pick_catch();
+  // catch_rarity / catch_name already set when the fight started
   s_game.state = GameState_Caught;
   s_game.state_ms = 0;
   cast_set_armed(false);
@@ -143,16 +144,24 @@ static void enter_snapped(void) {
 }
 
 static void enter_fighting(void) {
+  pick_catch(); // size/rarity locked in for this fight
   s_game.state = GameState_Fighting;
   s_game.state_ms = 0;
   s_game.tension = 50;
   s_game.reel_progress = 0;
+  s_game.reel_fp = 0;
   s_game.up_held = false;
   s_game.down_held = false;
   s_game.out_of_green_ms = 0;
   cast_set_armed(false);
   haptics_hook();
-  set_banner("Stay in green!", 0);
+  if (s_game.catch_rarity == FishRarity_Legend) {
+    set_banner("Heavy pull!", 0);
+  } else if (s_game.catch_rarity == FishRarity_Rare) {
+    set_banner("Strong fish!", 0);
+  } else {
+    set_banner("Stay in green!", 0);
+  }
 }
 
 static void enter_bite(void) {
@@ -176,15 +185,22 @@ static void enter_waiting(void) {
 }
 
 uint8_t game_green_lo(void) {
-  if (s_game.fight_difficulty == 0) return 25;
-  if (s_game.fight_difficulty == 2) return 40;
-  return 32;
+  uint8_t lo = 30;
+  if (s_game.fight_difficulty == 0) lo = 24;
+  else if (s_game.fight_difficulty == 2) lo = 36;
+  // Bigger fish → narrower green
+  if (s_game.catch_rarity == FishRarity_Rare) lo = (uint8_t)(lo + 4);
+  else if (s_game.catch_rarity == FishRarity_Legend) lo = (uint8_t)(lo + 8);
+  return lo;
 }
 
 uint8_t game_green_hi(void) {
-  if (s_game.fight_difficulty == 0) return 75;
-  if (s_game.fight_difficulty == 2) return 60;
-  return 68;
+  uint8_t hi = 70;
+  if (s_game.fight_difficulty == 0) hi = 76;
+  else if (s_game.fight_difficulty == 2) hi = 64;
+  if (s_game.catch_rarity == FishRarity_Rare) hi = (uint8_t)(hi - 4);
+  else if (s_game.catch_rarity == FishRarity_Legend) hi = (uint8_t)(hi - 8);
+  return hi;
 }
 
 bool game_in_green(void) {
@@ -192,36 +208,57 @@ bool game_in_green(void) {
       && s_game.tension <= (int16_t)game_green_hi();
 }
 
+static int16_t rarity_pull_bonus(void) {
+  if (s_game.catch_rarity == FishRarity_Legend) return 2;
+  if (s_game.catch_rarity == FishRarity_Rare) return 1;
+  return 0;
+}
+
 static int16_t idle_drift_per_tick(void) {
-  // Fish pulls the line when you're not easing
-  if (s_game.fight_difficulty == 0) return 1;
-  if (s_game.fight_difficulty == 2) return 2;
-  return 1;
+  int16_t d = 1;
+  if (s_game.fight_difficulty == 2) d = 2;
+  return d + rarity_pull_bonus();
 }
 
 static int16_t reel_tension_per_tick(void) {
-  if (s_game.fight_difficulty == 0) return 1;
-  if (s_game.fight_difficulty == 2) return 3;
-  return 2;
+  int16_t d = 2;
+  if (s_game.fight_difficulty == 0) d = 1;
+  else if (s_game.fight_difficulty == 2) d = 3;
+  return d + rarity_pull_bonus();
 }
 
 static int16_t ease_tension_per_tick(void) {
-  if (s_game.fight_difficulty == 0) return 3;
-  if (s_game.fight_difficulty == 2) return 2;
-  return 3;
+  int16_t d = 3;
+  if (s_game.fight_difficulty == 2) d = 2;
+  // Bigger fish fight the ease a bit
+  if (s_game.catch_rarity == FishRarity_Legend) d = 2;
+  return d;
 }
 
 static uint16_t snap_limit_ms(void) {
-  if (s_game.fight_difficulty == 0) return 2800;
-  if (s_game.fight_difficulty == 2) return 1200;
-  return 1800;
+  uint16_t ms = 1800;
+  if (s_game.fight_difficulty == 0) ms = 2600;
+  else if (s_game.fight_difficulty == 2) ms = 1200;
+  if (s_game.catch_rarity == FishRarity_Rare) ms = (uint16_t)(ms - 200);
+  else if (s_game.catch_rarity == FishRarity_Legend) ms = (uint16_t)(ms - 400);
+  if (ms < 800) ms = 800;
+  return ms;
 }
 
-static uint8_t reel_gain_per_tick(void) {
-  // Base fill while tension is in the green (~2–4s)
-  if (s_game.fight_difficulty == 0) return 3;
-  if (s_game.fight_difficulty == 2) return 1;
-  return 2;
+// Fixed-point reel fill: 10000 = full bar. Tuned slower overall;
+// rarity stretches the fight (common ~8s, rare ~13s, legend ~20s on Normal).
+static uint16_t reel_fp_gain_per_tick(void) {
+  uint16_t base = 55; // normal common ≈ 9s of green time
+  if (s_game.fight_difficulty == 0) base = 70;
+  else if (s_game.fight_difficulty == 2) base = 40;
+
+  if (s_game.catch_rarity == FishRarity_Rare) {
+    base = (uint16_t)((base * 5) / 8);   // ~1.6× longer
+  } else if (s_game.catch_rarity == FishRarity_Legend) {
+    base = (uint16_t)((base * 2) / 5);   // ~2.5× longer
+  }
+  if (base < 12) base = 12;
+  return base;
 }
 
 static void clamp_tension(void) {
@@ -230,7 +267,7 @@ static void clamp_tension(void) {
 }
 
 static void fight_tick(void) {
-  // Hold UP = tension rises (and reels faster while green)
+  // Hold UP = tension rises (and reels a bit faster while green)
   // Hold DOWN = ease tension down
   // Neither = mild fish pull
   if (s_game.down_held && !s_game.up_held) {
@@ -242,21 +279,23 @@ static void fight_tick(void) {
   }
   clamp_tension();
 
-  // Progress whenever tension is in the green — buttons manage the needle
+  // Progress whenever tension is in the green
   if (game_in_green()) {
     s_game.out_of_green_ms = 0;
-    uint8_t gain = reel_gain_per_tick();
+    uint16_t gain = reel_fp_gain_per_tick();
     if (s_game.up_held) {
-      gain = (uint8_t)(gain + gain); // hold UP = double speed
+      gain = (uint16_t)((gain * 3) / 2); // +50% while actively pulling
     }
-    if (s_game.reel_progress + gain >= 100) {
+    if (s_game.reel_fp + gain >= 10000) {
+      s_game.reel_fp = 10000;
       s_game.reel_progress = 100;
       s_game.up_held = false;
       s_game.down_held = false;
       enter_caught();
       return;
     }
-    s_game.reel_progress += gain;
+    s_game.reel_fp = (uint16_t)(s_game.reel_fp + gain);
+    s_game.reel_progress = (uint8_t)(s_game.reel_fp / 100);
   } else {
     s_game.out_of_green_ms += GAME_TICK_MS;
     if ((s_game.out_of_green_ms % 400) < GAME_TICK_MS) {

@@ -26,11 +26,12 @@ typedef struct {
   uint16_t wait_ms;          // scheduled wait before bite
   uint16_t bite_window_ms;
   int16_t tension;           // 0–100
-  uint8_t reel_progress;     // 0–100
+  uint8_t reel_progress;     // 0–100 display
+  uint16_t reel_fp;          // 0–10000 fixed-point progress
   bool up_held;
   bool down_held;
   uint16_t out_of_green_ms;
-  FishRarity catch_rarity;
+  FishRarity catch_rarity;   // chosen at fight start — drives fight length
   char catch_name[20];
   char banner[28];
   uint16_t banner_ms;

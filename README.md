@@ -9,7 +9,7 @@ Micro-fishing on your Pebble. Flick your wrist to cast, wait for a haptic bite, 
 - **SELECT** — hook when it buzzes
 - **Hold UP** — pull (tension rises; reels faster while green)
 - **Hold DOWN** — ease (tension drops)
-- Reel fills automatically while the needle stays in the green
+- Reel fills while the needle stays in the green — rarer/heavier fish take longer and pull harder
 - **BACK** — return to ready / title; from title exits
 
 Catches, streak, and best rarity persist between launches.
