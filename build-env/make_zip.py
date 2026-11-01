@@ -1,4 +1,8 @@
-"""Packs the project as a CloudPebble import: dist/WristCast-cloudpebble.zip."""
+"""Packs the project as a CloudPebble import: dist/WristCast-cloudpebble.zip.
+
+Files sit at the zip root (package.json, src/, …) — CloudPebble’s zip importer
+expects a standard Pebble project layout without an extra wrapper folder.
+"""
 import os
 import sys
 import zipfile
@@ -6,17 +10,16 @@ import zipfile
 root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else '.')
 os.makedirs(os.path.join(root, 'dist'), exist_ok=True)
 out = os.path.join(root, 'dist', 'WristCast-cloudpebble.zip')
-prefix = 'WristCast/'
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
     for item in ('package.json', 'wscript', 'resources', 'src'):
         path = os.path.join(root, item)
         if os.path.isfile(path):
-            z.write(path, prefix + item)
+            z.write(path, item)
             continue
         if not os.path.isdir(path):
             continue
         for folder, _, files in os.walk(path):
             for name in sorted(files):
                 full = os.path.join(folder, name)
-                z.write(full, prefix + os.path.relpath(full, root).replace(os.sep, '/'))
+                z.write(full, os.path.relpath(full, root).replace(os.sep, '/'))
 print('Wrote %s (%d files)' % (out, len(z.namelist())))
